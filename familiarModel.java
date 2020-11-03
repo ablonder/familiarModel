@@ -1,0 +1,432 @@
+package familiarity;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import sim.engine.SimState;
+import sim.engine.Steppable;
+import sim.field.SparseField;
+import sim.field.continuous.Continuous2D;
+import sim.field.grid.SparseGrid2D;
+import sim.field.network.Edge;
+import sim.field.network.Network;
+import sim.util.Bag;
+
+public class familiarModel extends Model {
+	
+	// TODO - it may be time to get some netbeans...
+	// number of agents in the population
+	public double popsize;
+	// maximum number of agents in the population
+	public int popthresh;
+	// list of empty slots in the list of agents in the superclass
+	public ArrayList<Integer> agentslots;
+	// range of vision
+	public double viewrange;
+	// range at which agents are repulsed by each other
+	public double repulserange;
+	// range at which agents are chosen to play each other
+	public double interactrange;
+	// whether agents are chosen randomly as opposed to based on the nearest
+	public boolean randinteract;
+	// maximum angle of rotation
+	public double maxrotate;
+	// step size
+	public double stepsize;
+	// error rate in movement
+	public double error;
+	// weight of flocking (flocking, aggregating, and continuing all add to 1)
+	public double flockstr;
+	// weight of continuing in the same direction
+	public double contstr;
+	// whether the agents try to move randomly or just stay still if they try to move into an occupied spot
+	public boolean randbounce;
+	// whether the agents should always be moving
+	public boolean alwaysmove;
+	// maximum distance of offspring from their parents (should actually be a proportion of the total dimenson)
+	public double reprodist;
+	// whether any evolution happens at all
+	public boolean evol;
+	// whether preference for familiars is allowed to evolve
+	public boolean evolfam;
+	// whether cooperation is allowed to evolve
+	public boolean evolcoop;
+	// whether aggregation evolves
+	public boolean evolagg;
+	// which game the agents are playing
+	public char game;
+	// if the game is only played once at the end
+	public boolean oneshot;
+	// how frequently evolution happens if that's the case
+	public int gentime;
+	// payoffs for the game
+	public double fitcost;
+	public double fitgain;
+	// whether the agents are subject to strong selection (die if they reach zero fitness)
+	public boolean strongselect;
+	// how much fitness is gained/lost on each step
+	public double otherfit;
+	// minimum lifespan
+	public int minlifespan;
+	// variation in lifespan
+	public int varlifespan;
+	// initial fitness (this is really to impose a cost of memory)
+	public int initfitness;
+	// fitness threshold for reproduction
+	public int reprothresh;
+	// amount of initial variance in familiarity parameters
+	public double initfamvar;
+	// mutation rate
+	public double mutrate;
+	// a separate mutation rate for aggregation
+	public double aggnoise;
+	// whether the network is included at all
+	public boolean net;
+	// how strongly agents favor familiar individuals (used to initialize and then keep track)
+	public double famBias;
+	// number of other agents an agent can remember at a time
+	public double memory;
+	// how many encounters it takes for an agent to become familiar
+	public double lrate;
+	// how long agents have to go without an encounter to no longer be familiar
+	public double decay;
+	// total familiar parameters for each strategy
+	public double[] fbias;
+	public double[] fmem;
+	public double[] fthresh;
+	public double[] fdecay;
+	// total aggregation tendency for each strategy (when that evolves)
+	public double[] agg;
+	// initial proportion of cooperative individuals
+	public double coopprop;
+	// average number of individuals an agent considers to be familiar
+	public double famCount;
+	// number of cooperative individuals
+	public int coopCount;
+	// whether the agents are on a grid or continuous space
+	public boolean cont;
+	// how large the space is (presumed square)
+	public int dims;
+	// space for the agents
+	public SparseField agentNet;
+	// underlying network of all agents who interact
+	public Network interactNet;
+	// social network of agents
+	public Network famNet;
+	// clustering coefficient
+	public double clustering;
+	// average familiarity
+	public double familiarity;
+	// total number of edges
+	public double edgecount;
+	// whether to display the network on GUI runs
+	public boolean displayNet;
+	// whether to return a file containing the edge list as well
+	public boolean edgeList;
+	// the actual file containing the edgelist (is created in write results)
+	public BufferedWriter edgewriter;
+	
+	public familiarModel() {
+		super();
+	}
+	
+	public familiarModel(String fname) {
+		super(fname);
+	}
+	
+	public void start() {
+		super.start();
+		// restart the schedule
+		this.schedule.clear();
+		// initialize population size to zero
+		this.popsize = 0;
+		// initialize array of agents in the super class to an array of size equal to the population threshold
+		this.agents = new Object[this.popthresh];
+		// initialize available slots to an empty list
+		this.agentslots = new ArrayList<Integer>();
+		// initialize clustering to 0
+		this.clustering = 0;
+		// initialize average number of familiar individuals
+		this.famCount = 0;
+		// number of cooperators
+		this.coopCount = 0;
+		// intialize average familiarity to 0
+		this.familiarity = 0;
+		// initialize the interaction network
+		this.interactNet = new Network();
+		// and the familiarity network
+		this.famNet = new Network();
+		// initialize the space (either continuous or as a grid
+		if(this.cont) {
+			// I'm going to start with a discretization 1
+			this.agentNet = new Continuous2D(1, this.dims, this.dims);
+		} else {
+			this.agentNet = new SparseGrid2D(this.dims, this.dims);
+		}
+		// store evolving parameters
+		double[] gene = new double[] {this.famBias, this.memory, this.lrate, this.decay, 0};
+		// initialize the totals by strategy
+		this.fbias = new double[] {0,0};
+		this.fmem = new double[] {0,0};
+		this.fthresh = new double[] {0,0};
+		this.fdecay = new double[] {0,0};
+		this.agg = new double[] {this.viewrange*this.coopprop*this.popthresh,this.viewrange*(1-this.coopprop)*this.popthresh};
+		// initialize a population of agents
+		for(int i = 0; i < this.popthresh; i++) {
+			// create a new gene for this agent by copying the template
+			double[] newgene = gene.clone();
+			// if this agent is going to be a cooperator, set the last gene to 1
+			if(i < this.coopprop*this.popthresh) newgene[4] = 1;
+			// if there is initial variance, add some to each of the familiarity parameters
+			if(this.initfamvar > 0) newgene = varyGene(newgene, this.initfamvar, 1);
+			// create a new agent with this genotype and a random location
+			Agent a = this.createAgent(newgene, random.nextInt(this.dims), random.nextInt(this.dims));
+			// reinitialize its age from a uniform distribution from zero to its lifespan
+			a.age = this.random.nextInt(a.lifespan);
+			// reinitialize its fitness from a uniform distribution from zero to the threshold
+			a.fitness = this.random.nextInt(this.reprothresh);
+			// if aggregative tendency is evolving, initialize that too
+			a.viewrange = this.viewrange;
+			// add it to the list of agents in the super class and initialize its ID number to i
+			this.agents[i] = a;
+			a.id = i;
+		}
+		// also add oneshot evolution to the schedule, if that's what's going on
+		if(this.oneshot) {
+			this.schedule.scheduleRepeating(new oneshotEvol(), gentime);
+		}
+	}
+	
+	/*
+	 * Helper function so that I don't have to do mutation/add variance in multiple places
+	 */
+	public double[] varyGene(double[] gene, double var, double rate) {
+		// loop through the familiarity traits to mutate them
+		for(int i = 0; i < 4; i++) {
+			// check to see if variance is added given the rate
+			if(this.random.nextBoolean(rate)) {
+				double v = var;
+				double max = Double.MAX_VALUE;
+				// familiarity threshold and memory should have twice as much variance to be meaningful
+				if(i == 1 || i == 2) v *= 2;
+				// decay rate and familiar bias should be less than 1
+				if(i == 0 || i == 3) max = 1;
+				// draw a number whithin the desired range to be the new gene
+				gene[i] = drawRange(gene[i], v, 0, max);
+			}
+		}
+		return gene;
+	}
+	
+	/*
+	 * Whatever class extends familiarModel will create a new agent of the right type with the given genotype and coordinates
+	 */
+	public Agent createAgent(double[] genotype, double x, double y) {
+		// calculate the actual reproduction distance in this space
+		double dist = this.reprodist*this.dims;
+		// use the coordinates provided as the origin and choose a random location within the provided reproduction distance (adjusted toroidally)
+		if(this.cont) {
+			Continuous2D space = (Continuous2D) this.agentNet;
+			return new SpatialAgent(this, genotype, this.initfitness, space.stx(x+random.nextDouble()*dist), space.sty(y+random.nextDouble()*dist));
+		} else {
+			SparseGrid2D space = (SparseGrid2D) this.agentNet;
+			return new SpatialAgent(this, genotype, this.initfitness, space.stx((int) x+random.nextInt((int)dist)), space.sty((int) y+random.nextInt((int) dist)));
+		}
+	}
+	
+	/*
+	 * I'll designate this as the class to pull parameters from
+	 * @see familiarity.Model#setSubclass()
+	 */
+	public void setClasses() {
+		this.subclass = familiarModel.class;
+		this.agentclass = Agent.class;
+	}
+	
+	/*
+	 * this is where I'll set the parameters to initialize and pull
+	 * @see familiarity.Model#setNames()
+	 */
+	public void setNames() {
+		super.setNames();
+		this.autoparams = true;
+		this.autores = true;
+	}
+	
+	/*
+	 * returns results that I don't just want to be handled automatically
+	 * @see familiarity.Model#getResult(java.lang.String, java.lang.Object, java.lang.Class)
+	 */
+	public String getResult(String r, Object o, Class c) {
+		if(c == this.subclass) {
+			switch(r) {
+			case "famBias": return(String.valueOf((this.fbias[1]/this.coopCount) + (this.fbias[0]/(this.popsize-this.coopCount))));
+			case "memory": return(String.valueOf((this.fmem[1]/this.coopCount) + (this.fmem[0]/(this.popsize-this.coopCount))));
+			case "lrate": return(String.valueOf((this.fthresh[1]/this.coopCount) + (this.fthresh[0]/(this.popsize-this.coopCount))));
+			case "decay": return(String.valueOf((this.fdecay[1]/this.coopCount) + (this.fdecay[0]/(this.popsize-this.coopCount))));
+			case "familiarity": return(String.valueOf(this.familiarity/this.edgecount));
+			case "coopFamBias": return(String.valueOf(this.fbias[1]/this.coopCount));
+			case "coopMemory": return(String.valueOf(this.fmem[1]/this.coopCount));
+			case "coopLrate": return(String.valueOf(this.fthresh[1]/this.coopCount));
+			case "coopDecay": return(String.valueOf(this.fdecay[1]/this.coopCount));
+			case "defectFamBias": return(String.valueOf(this.fbias[0]/(this.popsize-this.coopCount)));
+			case "defectMemory": return(String.valueOf(this.fmem[0]/(this.popsize-this.coopCount)));
+			case "defectLrate": return(String.valueOf(this.fthresh[0]/(this.popsize-this.coopCount)));
+			case "defectDecay": return(String.valueOf(this.fdecay[0]/(this.popsize-this.coopCount)));
+			case "coopCohesion": return(String.valueOf(this.agg[1]/this.coopCount));
+			case "defectCohesion": return(String.valueOf(this.agg[0]/(this.popsize-this.coopCount)));
+			// check for clustering so it's only calculated if needed
+			case "clustering":
+				// reset clustering back to zero
+				this.clustering = 0;
+				// loop through all the agents
+				for(Object obj : this.agents) {
+					// make sure it isn't null
+					if(obj != null) {
+						// cast as an agent
+						Agent a = (Agent) obj;
+						// calculate clustering for that agent
+						a.calcCluster(this);
+					}
+				}
+				// return the total clustering coefficient
+				return(String.valueOf(this.clustering));
+			}
+		} else if(c == this.agentclass) {
+			// for now, I'm just going to check to see if it's asking for the edge list
+			switch(r) {
+			// check for this agent's clustering coefficient
+			case "clustering":
+				// cast the object as an agent
+				Agent a = (Agent) o;
+				// calculate its local cluster
+				a.calcCluster(this);
+				// return it
+				return(String.valueOf(a.localcluster));
+			// if it wants the object, return the toString of the provided object
+			case "obj":
+				return("" + o);
+			case "xdir":
+			case "ydir":
+				// this needs to be a spatial agent for it to work
+				SpatialAgent s = (SpatialAgent) o;
+				// return the x and y orientation respecitvely
+				if(r.equals("xdir")) return("" + s.movedir[0]);
+				else return("" + s.movedir[1]);
+			}
+		}
+		return(super.getResult(r, o, c));
+	}
+	
+	/*
+	 * Closes the edge list writer at the end of a run if one has been created
+	 */
+	public void run(String[] args) {
+		super.run(args);
+		// try to close the edge list writer
+		if(this.edgewriter != null) {
+			try {
+				this.edgewriter.close();
+			} catch(IOException e) {
+				System.out.println("Edge list file failed to close.");
+			}
+		}
+	}
+	
+	/*
+	 * Add the option to create/add to an edge list file in write results
+	 */
+	public void writeResults(int s, String params, boolean end) {
+		super.writeResults(s, params, end);
+		// check to see if an edge list is being collected for this simulation
+		if(this.edgeList) {
+			// this all needs to be under a try catch
+			try {
+				// if the file hasn't been created yet, do that
+				if(this.edgewriter == null) {
+					this.edgewriter = new BufferedWriter(new FileWriter(this.fname+"edgelist.txt"));
+					// create the header
+					makeHeader(this.edgewriter, true, false, new String[] {"from", "to", "info"});
+				}
+				// loop through the familiarity network and add each edge to the file
+				for(Edge[] edges : this.interactNet.getAdjacencyList(true)) {
+					for(Edge e : edges) {
+						// make sure it's not trying to access a null edge, just in case
+						if(e != null) {
+							// I think I have to grab the agents separately to get their ID's
+							Agent from = (Agent) e.getFrom();
+							Agent to = (Agent) e.getTo();
+							// add that edge to the file (along with all the other info about the run that it's part of)
+							this.edgewriter.write("" + s + this.sep + schedule.getSteps() + this.sep + params + from.id + this.sep + 
+									to.id + this.sep + e.getInfo() + this.sep + "\n");
+						}
+					}
+				}
+			} catch(IOException e) {
+				System.out.println("Failed to write to edge list.");
+			}
+		}
+	}
+	
+	/*
+	 * I think I should be able to create a very simple steppable class in here to handle the oneshot evolution
+	 * this should only be called every gentime steps
+	 */
+	class oneshotEvol implements Steppable{
+		public void step(SimState state) {
+			// cast the state as a model
+			familiarModel model = (familiarModel) state;
+			// loop through all the agents in the model to calculate their fitness, since some are negative, I'll get the min to add to make all positive
+			double minfit = 0;
+			for(int i = 0; i < model.popthresh; i++) {
+				// grab the next agent from the population (I'm going to assume it isn't null)
+				Agent a = (Agent) model.agents[i];
+				// have it play to calculate its fitness (if it hasn't played before)
+				if(a.interact == 0) a.playGame(model, null);
+				// check to see if it's less than the min
+				if(a.fitness < minfit) minfit = a.fitness;
+			}
+			// then get the cumulative fitness, normalized for minimum, gathering the total to generate a range to draw from
+			double totalfit = 0;
+			double[] fitness = new double[(int) model.popthresh];
+			for(int i = 0; i < model.popthresh; i++) {
+				Agent a = (Agent) model.agents[i];
+				// add in normalized so it's all greater than 1
+				totalfit += a.fitness - minfit + 1;
+				fitness[i] = totalfit;
+			}
+			// then draw until we have a whole new population of agents
+			Object[] newagents = new Object[(int) model.popthresh];
+			// I'm also just calculating the total viewranges here
+			model.agg = new double[] {0, 0};
+			for(int j = 0; j < model.popthresh; j++) {
+				// draw a number between 0 and totalfit
+				double draw = model.random.nextDouble()*totalfit;
+				// go through the cumulative fitness list until it reaches an individual whose fitness is greater
+				int k = 0;
+				while(fitness[k] < draw && k < model.popthresh-1) k++;
+				// the new value of k should be the right agent to reproduce
+				Agent a = ((Agent) model.agents[k]).reproduce(model);
+				// add it to the list of new agents
+				newagents[j] = a;
+				// add its view range to the total
+				model.agg[(a.coop) ? 1:0] += a.viewrange;
+				// and give it an id
+				a.id = j;
+			}
+			// at the end, delete all the old agents and replace them with the new
+			for(int k = 0; k < model.popthresh; k++) {
+				((Agent) model.agents[k]).die(model);
+			}
+			model.agents = newagents;
+		}
+	}
+	
+	
+	public static void main(String[] args) {
+		familiarModel model = new familiarModel("validation.txt");
+	}
+}
