@@ -1,7 +1,5 @@
 package familiarity;
 
-import java.util.Arrays;
-
 import sim.engine.SimState;
 import sim.field.continuous.Continuous2D;
 import sim.field.grid.Grid2D;
@@ -14,7 +12,7 @@ public class SpatialAgent extends Agent {
 	// store last direction moved
 	double[] movedir;
 	
-	public SpatialAgent(familiarModel model, double[] gene, int initfitness, double x, double y) {
+	public SpatialAgent(familiarModel model, double[] gene, double initfitness, double x, double y) {
 		super(model, gene, initfitness, x, y);
 		// initialize direction of movement as random
 		if(model.cont) {
@@ -331,8 +329,6 @@ public class SpatialAgent extends Agent {
 		this.netx = space.stx(this.netx+model.stepsize*this.movedir[0]);
 		this.nety = space.sty(this.nety+model.stepsize*this.movedir[1]);
 		space.setObjectLocation(this, new Double2D(this.netx, this.nety));
-		
-		// TODO - figure out movement parameters from video and match
 	}
 	
 	/*

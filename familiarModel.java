@@ -26,10 +26,16 @@ public class familiarModel extends Model {
 	public ArrayList<Integer> agentslots;
 	// range of vision
 	public double viewrange;
+	// range of vision as proportion of space
+	public double viewp;
 	// range at which agents are repulsed by each other
 	public double repulserange;
+	// repulsion range as proportion of view range
+	public double repulsep;
 	// range at which agents are chosen to play each other
 	public double interactrange;
+	// interaction range as proportion of space
+	public double interactp;
 	// whether agents are chosen randomly as opposed to based on the nearest
 	public boolean randinteract;
 	// maximum angle of rotation
@@ -65,18 +71,30 @@ public class familiarModel extends Model {
 	// payoffs for the game
 	public double fitcost;
 	public double fitgain;
-	// whether the agents are subject to strong selection (die if they reach zero fitness)
+	// cost-benefit ratio (always between 0 and 1)
+	public double costb;
+	// fitness scaling factor to multiply the costs and benefits by (as proportion of the reproduction threshold)
+	public double fitscale;
+	// cost for aggregation (for the Joshi et al model)
+	public double aggcost;
+	// whether the agents die if they reach zero fitness
 	public boolean strongselect;
 	// how much fitness is gained/lost on each step
 	public double otherfit;
+	// other fitness as a normally drawn proportion of fitscale
+	public double ofitp;
 	// minimum lifespan
-	public int minlifespan;
+	public double minlifespan;
 	// variation in lifespan
-	public int varlifespan;
-	// initial fitness (this is really to impose a cost of memory)
-	public int initfitness;
+	public double varlifespan;
+	// variation in lifespan as a proportion of lifespan
+	public double varlifep;
+	// initial fitness
+	public double initfitness;
+	// initial fitness as a proportion of the threshold for reproduction
+	public double initfitp;
 	// fitness threshold for reproduction
-	public int reprothresh;
+	public double reprothresh;
 	// amount of initial variance in familiarity parameters
 	public double initfamvar;
 	// mutation rate
@@ -89,8 +107,12 @@ public class familiarModel extends Model {
 	public double famBias;
 	// number of other agents an agent can remember at a time
 	public double memory;
+	// proportion of total maximum population that can be remembered at a time
+	public double memp;
 	// how many encounters it takes for an agent to become familiar
 	public double lrate;
+	// proportion of lifespan that it takes for agents to become familiar
+	public double lrp;
 	// how long agents have to go without an encounter to no longer be familiar
 	public double decay;
 	// total familiar parameters for each strategy
@@ -110,6 +132,8 @@ public class familiarModel extends Model {
 	public boolean cont;
 	// how large the space is (presumed square)
 	public int dims;
+	// the population density (proportion of number of squares) if population threshold isn't specified
+	public double density;
 	// space for the agents
 	public SparseField agentNet;
 	// underlying network of all agents who interact
@@ -139,6 +163,20 @@ public class familiarModel extends Model {
 	
 	public void start() {
 		super.start();
+		// there are some parameters whose values may need to be recalculated based on other parameters
+		if(this.density > 0) this.popthresh = (int) (this.dims*this.dims*this.density);
+		if(varlifep > 0) this.varlifespan = (int) (this.minlifespan*this.varlifep);
+		if(this.viewp > 0) this.viewrange = this.dims*this.viewp;
+		if(this.repulsep > 0) this.repulserange = this.viewrange*this.repulsep;
+		if(this.interactp > 0) this.interactrange = this.interactp*this.dims;
+		if(this.costb > 0 && this.fitscale > 0) {
+			this.fitgain = this.fitscale*this.reprothresh;
+			this.fitcost = this.fitgain*this.costb;
+			if(ofitp > 0) this.otherfit = this.fitgain*this.ofitp;
+		}
+		if(this.memp > 0) this.memory = this.memp*this.popthresh;
+		if(this.lrp > 0) this.lrate = this.lrp*this.minlifespan;
+		if(this.initfitp > 0) this.initfitness = this.reprothresh*this.initfitp;
 		// restart the schedule
 		this.schedule.clear();
 		// initialize population size to zero
@@ -173,7 +211,7 @@ public class familiarModel extends Model {
 		this.fmem = new double[] {0,0};
 		this.fthresh = new double[] {0,0};
 		this.fdecay = new double[] {0,0};
-		this.agg = new double[] {this.viewrange*this.coopprop*this.popthresh,this.viewrange*(1-this.coopprop)*this.popthresh};
+		this.agg = new double[] {this.viewrange*(1-this.coopprop)*this.popthresh, this.viewrange*this.coopprop*this.popthresh};
 		// initialize a population of agents
 		for(int i = 0; i < this.popthresh; i++) {
 			// create a new gene for this agent by copying the template
@@ -186,8 +224,8 @@ public class familiarModel extends Model {
 			Agent a = this.createAgent(newgene, random.nextInt(this.dims), random.nextInt(this.dims));
 			// reinitialize its age from a uniform distribution from zero to its lifespan
 			a.age = this.random.nextInt(a.lifespan);
-			// reinitialize its fitness from a uniform distribution from zero to the threshold
-			a.fitness = this.random.nextInt(this.reprothresh);
+			// add to its fitness from a uniform distribution between the initial fitness and the threshold
+			a.fitness += this.random.nextDouble()*(this.reprothresh-this.initfitness);
 			// if aggregative tendency is evolving, initialize that too
 			a.viewrange = this.viewrange;
 			// add it to the list of agents in the super class and initialize its ID number to i
@@ -211,9 +249,11 @@ public class familiarModel extends Model {
 				double v = var;
 				double max = Double.MAX_VALUE;
 				// familiarity threshold and memory should have twice as much variance to be meaningful
-				if(i == 1 || i == 2) v *= 2;
+				// TODO - maybe put variance on the scale of the initial parameter values?
+				if(i == 1) v*= this.memory;
+				else if (i == 2) v *= this.lrate;
 				// decay rate and familiar bias should be less than 1
-				if(i == 0 || i == 3) max = 1;
+				else max = 1;
 				// draw a number whithin the desired range to be the new gene
 				gene[i] = drawRange(gene[i], v, 0, max);
 			}
@@ -372,8 +412,7 @@ public class familiarModel extends Model {
 	}
 	
 	/*
-	 * I think I should be able to create a very simple steppable class in here to handle the oneshot evolution
-	 * this should only be called every gentime steps
+	 * A simple steppable class in here to handle the oneshot evolution (only called every gentime steps)
 	 */
 	class oneshotEvol implements Steppable{
 		public void step(SimState state) {
@@ -400,8 +439,6 @@ public class familiarModel extends Model {
 			}
 			// then draw until we have a whole new population of agents
 			Object[] newagents = new Object[(int) model.popthresh];
-			// I'm also just calculating the total viewranges here
-			model.agg = new double[] {0, 0};
 			for(int j = 0; j < model.popthresh; j++) {
 				// draw a number between 0 and totalfit
 				double draw = model.random.nextDouble()*totalfit;
@@ -412,8 +449,6 @@ public class familiarModel extends Model {
 				Agent a = ((Agent) model.agents[k]).reproduce(model);
 				// add it to the list of new agents
 				newagents[j] = a;
-				// add its view range to the total
-				model.agg[(a.coop) ? 1:0] += a.viewrange;
 				// and give it an id
 				a.id = j;
 			}
@@ -427,6 +462,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("validation.txt");
+		familiarModel model = new familiarModel("randRun.txt");
 	}
 }

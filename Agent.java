@@ -57,7 +57,7 @@ public abstract class Agent implements Steppable{
 	/*
 	 * initializes parameters
 	 */
-	public Agent(familiarModel model, double[] params, int initfitness, double x, double y) {
+	public Agent(familiarModel model, double[] params, double initfitness, double x, double y) {
 		// increment population size
 		model.popsize++;
 		// if the list of open slots isn't empty, take one of those as its ID and fill that slot
@@ -124,12 +124,7 @@ public abstract class Agent implements Steppable{
 			alpha = 1/(1 + Math.exp(-this.viewrange));
 		}
 		this.color = new Color(this.color.getRed(), this.color.getGreen(), this.color.getBlue(), (int) (205 + 50*alpha));
-		// initialize fitness to provided value divided by memory (accounting for division by zero)
-		if(this.memory > 1) {
-			this.fitness = (int) Math.round(initfitness/this.memory);
-		} else {
-			this.fitness = initfitness;
-		}
+		this.fitness = initfitness;
 	}
 	
 	/*
@@ -183,6 +178,11 @@ public abstract class Agent implements Steppable{
 					a.fitness -= model.fitcost;
 					this.fitness += model.fitgain;
 				}
+				// if aggregation tendency is also evolving, that comes with a cost (for both players)
+				if(model.evolagg) {
+					this.fitness -= model.aggcost*Math.pow(this.viewrange, 2);
+					a.fitness -= model.aggcost*Math.pow(a.viewrange, 2);
+				}
 				break;
 			// if evolving based just on familiarity, update fitness based on how familiar the two agents are
 			case 'f':
@@ -198,6 +198,7 @@ public abstract class Agent implements Steppable{
 				this.fitness++;
 				a.fitness++;
 				break;
+			// if this is the public goods game, find all the agents connected to this agent, and increment all their fitness together
 			case 'g':
 				// grab the space (because I'll be using it a bunch)
 				Continuous2D space = (Continuous2D) model.agentNet;
@@ -244,7 +245,7 @@ public abstract class Agent implements Steppable{
 					// add the benefit, based on the proportion of its groupmates that are cooperators (if it has any groupmates)
 					if(groupsize > 1) a.fitness += model.fitgain*(cooperators-c)/(groupsize - 1);
 					// also subtract the aggregation cost
-					a.fitness -= 2*Math.pow(a.viewrange, 2);
+					a.fitness -= model.aggcost*Math.pow(a.viewrange, 2);
 				}
 				break;
 		}
@@ -421,6 +422,7 @@ public abstract class Agent implements Steppable{
 		a.viewrange = this.viewrange;
 		if(model.evolagg) {
 			a.viewrange = model.drawRange(this.viewrange, model.aggnoise, 1, Double.MAX_VALUE);
+			model.agg[(a.coop) ? 1:0] += a.viewrange;
 		}
 		return a;
 	}
@@ -452,5 +454,6 @@ public abstract class Agent implements Steppable{
 		model.fmem[(this.coop) ? 1:0] -= this.memory;
 		model.fthresh[(this.coop) ? 1:0] -= this.lrate;
 		model.fdecay[(this.coop) ? 1:0] -= this.decay;
+		if(model.evolagg) model.agg[(this.coop) ? 1:0] -= this.viewrange;
 	}
 }
