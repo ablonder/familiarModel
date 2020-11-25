@@ -71,10 +71,8 @@ public abstract class Agent implements Steppable{
 		model.interactNet.addNode(this);
 		// and to the familiarity network
 		model.famNet.addNode(this);
-		// draw its lifespan from a normal distribution
-		this.lifespan = (int) (model.random.nextGaussian()*model.varlifespan+model.minlifespan);
-		// make sure it's not less than one
-		this.lifespan = Math.max(this.lifespan, 1);
+		// draw its lifespan from a normal distribution (making sure it's at least 1)
+		this.lifespan = (int) (model.drawErlang(model.minlifespan, model.varlifespan));
 		// initialize number of familiar individuals to zero
 		this.famCount = 0;
 		// initialize interactions to 0
@@ -380,7 +378,7 @@ public abstract class Agent implements Steppable{
 		// if it's reached the reproduction threshold, try to reproduce
 		if(this.fitness >= model.reprothresh) {
 			// decrease fitness whether it succeeds or not
-			this.fitness -= model.reprothresh;
+			this.fitness -= model.reprothresh*model.reprocost;
 			// if the actual population size is smaller than the threshold, actually reproduce
 			if(model.popsize < model.popthresh) {
 				reproduce(model);

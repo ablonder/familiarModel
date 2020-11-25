@@ -17,6 +17,7 @@ import java.util.Arrays;
 
 import ec.util.MersenneTwisterFast;
 import sim.engine.*;
+import sim.util.distribution.Beta;
 import sim.util.distribution.Distributions;
 
 public abstract class Model extends SimState  {
@@ -323,8 +324,11 @@ public abstract class Model extends SimState  {
 				// choice between a provided number of options (mostly used for a coin flip on binary variables) 
 				return rand.nextInt(Integer.parseInt(distparams[0]));
 			case 'E':
-				// Erlang distribution, for things that are generally small (but above 0), with some larger values
-				return Distributions.nextErlang(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), rand);
+				// Erlang distribution, for things that are generally small (but above 0), with some larger values (with mode and sd)
+				return drawErlang(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]));
+			case 'B':
+				// Beta distribution for things between 0 and 1 (with mode and inverse sd)
+				return drawBeta(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]));
 			}
 		}catch(NumberFormatException e) {
 			// this and a few other things will result in returning NaN
@@ -727,6 +731,7 @@ public abstract class Model extends SimState  {
 	
 	/*
 	 * helper utility to  draw a random value from a normal distribution within a certain range using a while-loop
+	 * TODO - phase out
 	 */
 	public double drawRange(double val, double var, double min, double max) {
 		boolean within = false;
@@ -741,6 +746,30 @@ public abstract class Model extends SimState  {
 		}
 		// once a reasonable value has been found, return it
 		return draw+val;
+	}
+	
+	/*
+	 * helper utility to draw a random value from a nicely shaped Erlang distribution (based around mode and standard deviation)
+	 * 	(note: struggles with large values - algorithm runs mean^2/var iterations
+	 *   scale by dividing mean and sd by a constant, convert sd to variance by squaring, and then scale back up the result)
+	 */
+	public double drawErlang(double mode, double sd) {
+		double v = Math.pow(2*sd, 2);
+		double m = (1+Math.sqrt(1 + 4*v))/2;
+		double draw = Distributions.nextErlang(v, m, this.random);
+		if(draw == Double.POSITIVE_INFINITY) return mode;
+		return draw*mode;
+	}
+	
+	/*
+	 * helper utility to draw a random value from a nicely shaped Beta distribution between 0 and 1 (based around mode and "concentration")
+	 */
+	public double drawBeta(double mode, double var) {
+		double a = mode*(500*var)+1;
+		double b = (1-mode)*(500*var)+1;
+		Beta beta = new Beta(a, b, this.random);
+		double draw = beta.nextDouble();
+		return draw;
 	}
 
 }

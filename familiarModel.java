@@ -85,16 +85,16 @@ public class familiarModel extends Model {
 	public double ofitp;
 	// minimum lifespan
 	public double minlifespan;
-	// variation in lifespan
+	// variation in lifespan (between 0 and 1 for fitting into my nice Erlang)
 	public double varlifespan;
-	// variation in lifespan as a proportion of lifespan
-	public double varlifep;
 	// initial fitness
 	public double initfitness;
 	// initial fitness as a proportion of the threshold for reproduction
 	public double initfitp;
 	// fitness threshold for reproduction
 	public double reprothresh;
+	// amount of resources lost at reproduction (as proportion of the threshold for reproduction)
+	public double reprocost;
 	// amount of initial variance in familiarity parameters
 	public double initfamvar;
 	// mutation rate
@@ -111,7 +111,7 @@ public class familiarModel extends Model {
 	public double memp;
 	// how many encounters it takes for an agent to become familiar
 	public double lrate;
-	// proportion of lifespan that it takes for agents to become familiar
+	// proportion of lifespan that it takes for agents to become familiar (accounting for decay)
 	public double lrp;
 	// how long agents have to go without an encounter to no longer be familiar
 	public double decay;
@@ -165,17 +165,19 @@ public class familiarModel extends Model {
 		super.start();
 		// there are some parameters whose values may need to be recalculated based on other parameters
 		if(this.density > 0) this.popthresh = (int) (this.dims*this.dims*this.density);
-		if(varlifep > 0) this.varlifespan = (int) (this.minlifespan*this.varlifep);
 		if(this.viewp > 0) this.viewrange = this.dims*this.viewp;
 		if(this.repulsep > 0) this.repulserange = this.viewrange*this.repulsep;
 		if(this.interactp > 0) this.interactrange = this.interactp*this.dims;
 		if(this.costb > 0 && this.fitscale > 0) {
 			this.fitgain = this.fitscale*this.reprothresh;
 			this.fitcost = this.fitgain*this.costb;
-			if(ofitp > 0) this.otherfit = this.fitgain*this.ofitp;
+			if(ofitp != 0) {
+				this.otherfit = this.fitgain*this.ofitp;
+				if(this.fitgain - this.fitcost + this.otherfit < 0) this.otherfit = -this.random.nextDouble()*(this.fitgain-this.fitcost);
+			}
 		}
 		if(this.memp > 0) this.memory = this.memp*this.popthresh;
-		if(this.lrp > 0) this.lrate = this.lrp*this.minlifespan;
+		if(this.lrp > 0) this.lrate = this.lrp*(1-this.decay)*this.minlifespan;
 		if(this.initfitp > 0) this.initfitness = this.reprothresh*this.initfitp;
 		// restart the schedule
 		this.schedule.clear();
@@ -242,20 +244,19 @@ public class familiarModel extends Model {
 	 * Helper function so that I don't have to do mutation/add variance in multiple places
 	 */
 	public double[] varyGene(double[] gene, double var, double rate) {
-		// loop through the familiarity traits to mutate them
-		for(int i = 0; i < 4; i++) {
-			// check to see if variance is added given the rate
-			if(this.random.nextBoolean(rate)) {
-				double v = var;
-				double max = Double.MAX_VALUE;
-				// familiarity threshold and memory should have twice as much variance to be meaningful
-				// TODO - maybe put variance on the scale of the initial parameter values?
-				if(i == 1) v*= this.memory;
-				else if (i == 2) v *= this.lrate;
-				// decay rate and familiar bias should be less than 1
-				else max = 1;
-				// draw a number whithin the desired range to be the new gene
-				gene[i] = drawRange(gene[i], v, 0, max);
+		// loop through the familiarity traits to mutate them (only if variance is > 0)
+		if(var > 0) {
+			for(int i = 0; i < 4; i++) {
+				// check to see if variance is added given the rate
+				if(this.random.nextBoolean(rate)) {
+					// for famBias and decay, draw from my nice beta distribution (with inverse variance, since higher values are tighter)
+					if(i == 0 || i == 3) {
+						gene[i] = drawBeta(gene[i], 1-var);
+					} else {
+						// otherwise, for memory and lrate, draw from my nice erlang distribution
+						gene[i] = drawErlang(gene[i], var);
+					}
+				}
 			}
 		}
 		return gene;
@@ -303,10 +304,10 @@ public class familiarModel extends Model {
 	public String getResult(String r, Object o, Class c) {
 		if(c == this.subclass) {
 			switch(r) {
-			case "famBias": return(String.valueOf((this.fbias[1]/this.coopCount) + (this.fbias[0]/(this.popsize-this.coopCount))));
-			case "memory": return(String.valueOf((this.fmem[1]/this.coopCount) + (this.fmem[0]/(this.popsize-this.coopCount))));
-			case "lrate": return(String.valueOf((this.fthresh[1]/this.coopCount) + (this.fthresh[0]/(this.popsize-this.coopCount))));
-			case "decay": return(String.valueOf((this.fdecay[1]/this.coopCount) + (this.fdecay[0]/(this.popsize-this.coopCount))));
+			case "meanfamBias": return(String.valueOf((this.fbias[1]/this.popsize) + (this.fbias[0]/this.popsize)));
+			case "meanmemory": return(String.valueOf((this.fmem[1]/this.popsize) + (this.fmem[0]/this.popsize)));
+			case "meanlrate": return(String.valueOf((this.fthresh[1]/this.popsize) + (this.fthresh[0]/this.popsize)));
+			case "meandecay": return(String.valueOf((this.fdecay[1]/this.popsize) + (this.fdecay[0]/this.popsize)));
 			case "familiarity": return(String.valueOf(this.familiarity/this.edgecount));
 			case "coopFamBias": return(String.valueOf(this.fbias[1]/this.coopCount));
 			case "coopMemory": return(String.valueOf(this.fmem[1]/this.coopCount));

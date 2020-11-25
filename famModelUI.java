@@ -105,7 +105,7 @@ public class famModelUI extends GUIState {
 	
 	public static void main(String[] args) {
 		// this needs to create a model, make sure gui is set to true or it'll just run normally
-		familiarModel model = new familiarModel("GUIInput.txt");
+		familiarModel model = new familiarModel("randGUI.txt");
 		famModelUI vid = new famModelUI(model);
 		Console c = new Console(vid);
 		c.setVisible(true);
