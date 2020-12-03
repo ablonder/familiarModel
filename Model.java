@@ -325,6 +325,10 @@ public abstract class Model extends SimState  {
 				return rand.nextInt(Integer.parseInt(distparams[0]));
 			case 'E':
 				// Erlang distribution, for things that are generally small (but above 0), with some larger values (with mode and sd)
+				// can be with or without a min
+				if(distparams.length > 2) {
+					return drawErlang(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), Double.parseDouble(distparams[2]));
+				}
 				return drawErlang(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]));
 			case 'B':
 				// Beta distribution for things between 0 and 1 (with mode and inverse sd)
@@ -759,6 +763,13 @@ public abstract class Model extends SimState  {
 		double draw = Distributions.nextErlang(v, m, this.random);
 		if(draw == Double.POSITIVE_INFINITY) return mode;
 		return draw*mode;
+	}
+	
+	/*
+	 * calls drawErlang with a min other than 0 by subtracting and then adding back
+	 */
+	public double drawErlang(double mode, double sd, double min) {
+		return drawErlang(mode-min, sd) + min;
 	}
 	
 	/*

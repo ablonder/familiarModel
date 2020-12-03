@@ -463,6 +463,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("randRun.txt");
+		familiarModel model = new familiarModel("randTest.txt");
 	}
 }
