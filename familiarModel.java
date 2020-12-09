@@ -173,7 +173,11 @@ public class familiarModel extends Model {
 			this.fitcost = this.fitgain*this.costb;
 			if(ofitp != 0) {
 				this.otherfit = this.fitgain*this.ofitp;
-				if(this.fitgain - this.fitcost + this.otherfit < 0) this.otherfit = -this.random.nextDouble()*(this.fitgain-this.fitcost);
+				if(this.fitgain - this.fitcost + this.otherfit < 0) {
+					this.otherfit = -this.random.nextDouble()*(this.fitgain-this.fitcost);
+					// since I'm randomly drawing again, I need to change it for all the following replicates
+					resetParam("ofitp", Double.toString(this.otherfit/this.fitgain));
+				}
 			}
 		}
 		if(this.memp > 0) this.memory = this.memp*this.popthresh;
@@ -249,12 +253,12 @@ public class familiarModel extends Model {
 			for(int i = 0; i < 4; i++) {
 				// check to see if variance is added given the rate
 				if(this.random.nextBoolean(rate)) {
-					// for famBias and decay, draw from my nice beta distribution (with inverse variance, since higher values are tighter)
+					// for famBias and decay, draw from a Beta distribution (with a maximum of 3/4 variance to keep it a little tighter)
 					if(i == 0 || i == 3) {
-						gene[i] = drawBeta(gene[i], 1-var);
+						gene[i] = drawBeta(gene[i], var*3/4);
 					} else {
-						// otherwise, for memory and lrate, draw from my nice erlang distribution
-						gene[i] = drawErlang(gene[i], var);
+						// otherwise, for memory and lrate, draw from a Gamma distribution
+						gene[i] = drawGamma(gene[i], var, 0);
 					}
 				}
 			}
@@ -463,6 +467,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("randTest.txt");
+		familiarModel model = new familiarModel(args[0]);
 	}
 }

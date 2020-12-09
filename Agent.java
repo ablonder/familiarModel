@@ -72,7 +72,7 @@ public abstract class Agent implements Steppable{
 		// and to the familiarity network
 		model.famNet.addNode(this);
 		// draw its lifespan from a normal distribution (making sure it's at least 1)
-		this.lifespan = (int) (model.drawErlang(model.minlifespan, model.varlifespan, 1));
+		this.lifespan = (int) (model.drawGamma(model.minlifespan, model.varlifespan, 1));
 		// initialize number of familiar individuals to zero
 		this.famCount = 0;
 		// initialize interactions to 0
