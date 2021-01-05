@@ -122,6 +122,14 @@ public class familiarModel extends Model {
 	public double[] fdecay;
 	// total aggregation tendency for each strategy (when that evolves)
 	public double[] agg;
+	// there are also a few things I want accumulated over the whole simulation, so I need to count the total number of agents of each type
+	public double[] acount;
+	// I want to get total number of interactions
+	public double[] interacts;
+	// total fecundity
+	public double[] fecundity;
+	// and actual lifespan
+	public double[] survival;
 	// initial proportion of cooperative individuals
 	public double coopprop;
 	// average number of individuals an agent considers to be familiar
@@ -323,6 +331,12 @@ public class familiarModel extends Model {
 			case "defectDecay": return(String.valueOf(this.fdecay[0]/(this.popsize-this.coopCount)));
 			case "coopCohesion": return(String.valueOf(this.agg[1]/this.coopCount));
 			case "defectCohesion": return(String.valueOf(this.agg[0]/(this.popsize-this.coopCount)));
+			case "coopInteracts": return(String.valueOf(this.interacts[1]/this.acount[1]));
+			case "defectInteracts": return(String.valueOf(this.interacts[0]/this.acount[0]));
+			case "coopFecundity": return(String.valueOf(this.fecundity[1]/this.acount[1]));
+			case "defectFecundity": return(String.valueOf(this.fecundity[0]/this.acount[0]));
+			case "coopSurvival": return(String.valueOf(this.survival[1]/this.acount[1]));
+			case "defectSurvival": return(String.valueOf(this.survival[0]/this.acount[0]));
 			// check for clustering so it's only calculated if needed
 			case "clustering":
 				// reset clustering back to zero
@@ -467,6 +481,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel(args[0]);
+		familiarModel model = new familiarModel("famTest.txt");
 	}
 }

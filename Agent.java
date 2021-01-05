@@ -51,8 +51,10 @@ public abstract class Agent implements Steppable{
 	public Edge weakestlink;
 	// the agent this agent interacted with on the previous step
 	public Agent previnteract;
-	// the number of steps this agent as interacted on
+	// the number of steps this agent has interacted on
 	public int interact;
+	// the total number of offspring this agent has had
+	public int offspring;
 	
 	/*
 	 * initializes parameters
@@ -394,6 +396,8 @@ public abstract class Agent implements Steppable{
 	 * handles the actual reproduction, so that I can call this in a few different places
 	 */
 	public Agent reproduce(familiarModel model) {
+		// increment the number of offspring this individual has had
+		this.offspring++;
 		// initialize list of traits
 		double[] newtraits = new double[] {this.famBias, this.memory, this.lrate, this.decay, 0};
 		// if familiarity is evolving, agents inherit their traits from their parent with some chance of mutation
@@ -447,11 +451,18 @@ public abstract class Agent implements Steppable{
 		// and the population averages
 		model.famCount -= this.famCount;
 		if(this.coop) model.coopCount--;
+		// I need whether this individual is a cooperator as a number in a few palces
+		int i = (this.coop) ? 1:0;
 		// and the trait averages by strategy
-		model.fbias[(this.coop) ? 1:0] -= this.famBias;
-		model.fmem[(this.coop) ? 1:0] -= this.memory;
-		model.fthresh[(this.coop) ? 1:0] -= this.lrate;
-		model.fdecay[(this.coop) ? 1:0] -= this.decay;
-		if(model.evolagg) model.agg[(this.coop) ? 1:0] -= this.viewrange;
+		model.fbias[i] -= this.famBias;
+		model.fmem[i] -= this.memory;
+		model.fthresh[i] -= this.lrate;
+		model.fdecay[i] -= this.decay;
+		if(model.evolagg) model.agg[i] -= this.viewrange;
+		// and add its information to the running totals (also by strategy)
+		model.acount[i]++;
+		model.interacts[i] += this.interact;
+		model.fecundity[i] += this.offspring;
+		model.survival[i] += this.age;
 	}
 }
