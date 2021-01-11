@@ -220,12 +220,17 @@ public class familiarModel extends Model {
 		}
 		// store evolving parameters
 		double[] gene = new double[] {this.famBias, this.memory, this.lrate, this.decay, 0};
-		// initialize the totals by strategy
+		// initialize trait totals by strategy
 		this.fbias = new double[] {0,0};
 		this.fmem = new double[] {0,0};
 		this.fthresh = new double[] {0,0};
 		this.fdecay = new double[] {0,0};
 		this.agg = new double[] {this.viewrange*(1-this.coopprop)*this.popthresh, this.viewrange*this.coopprop*this.popthresh};
+		// also total number of interactions, fecundity, survival, and total number of agents
+		this.interacts = new double[] {0,0};
+		this.fecundity = new double[] {0,0};
+		this.survival = new double[] {0,0};
+		this.acount = new double[] {0,0};
 		// initialize a population of agents
 		for(int i = 0; i < this.popthresh; i++) {
 			// create a new gene for this agent by copying the template
