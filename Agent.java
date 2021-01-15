@@ -41,10 +41,11 @@ public abstract class Agent implements Steppable{
 	public double famCount;
 	// clustering coefficient around this agent
 	public double localcluster;
+	// TODO - figure out what these are actually storing (and make it x and y from Spatial Agent)
 	// x coordinate on the social network
-	double netx;
+	public double netx;
 	// y coordinate on the social network
-	double nety;
+	public double nety;
 	// color for visualization
 	public Color color;
 	// this agent's weakest connection
