@@ -486,6 +486,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("famTest.txt");
+		familiarModel model = new familiarModel(args[0]);
 	}
 }
