@@ -408,8 +408,8 @@ public abstract class Agent implements Steppable{
 			// otherwise, just use the initial values for the model with some random variance
 			newtraits = model.varyGene(new double[] {model.famBias, model.memory, model.lrate, model.decay, 0}, model.initfamvar, 1);
 		}
-		// if cooperation evolves, base that off of its parents with some chance of mutation too
-		if(model.evolcoop) {
+		// if cooperation evolves, base that off of its parents with some chance of mutation too (as long as it's past the burn-in, that is)
+		if(model.evolcoop && model.schedule.getSteps() > model.burnin) {
 			boolean mutate = model.random.nextBoolean(model.mutrate);
 			if((this.coop && !mutate) || (!this.coop && mutate)) {
 				newtraits[4] = 1;

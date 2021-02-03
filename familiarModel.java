@@ -142,6 +142,8 @@ public class familiarModel extends Model {
 	public int dims;
 	// the population density (proportion of number of squares) if population threshold isn't specified
 	public double density;
+	// burn in period with no mutation to allow agents to form groups first
+	public int burnin;
 	// space for the agents
 	public SparseField agentNet;
 	// underlying network of all agents who interact
