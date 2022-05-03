@@ -4,6 +4,8 @@ import sim.engine.SimState;
 import sim.field.continuous.Continuous2D;
 import sim.field.grid.Grid2D;
 import sim.field.grid.SparseGrid2D;
+import sim.field.network.Edge;
+import sim.field.network.Network;
 import sim.util.Bag;
 import sim.util.Double2D;
 
@@ -34,13 +36,22 @@ public class SpatialAgent extends Agent {
 		} else {
 			discMove(model);
 		}
+		// if there's an adjacency network and it's time to collect data, also update that
+		if(model.adjacency > 0 && model.schedule.getSteps() >= model.teststart &&
+				((model.netint == 0 && model.schedule.getSteps()%model.testint == model.testint-1) ||
+						(model.netint > 0 && model.schedule.getSteps()%model.netint == model.netint-1))) {
+			getAdjacency(model, true);
+		}else if(model.adjacency > 0 && model.adjNet != null) {
+			// if it's not time to update the network, I'm just going to set it to null to empty it out
+			model.adjNet = null;
+		}
 		// this has to be at the end so agents don't move after they die
 		super.step(state);
 	}
 
 	/*
 	 * Discrete movement (loose implementation of active movement in Joshi et al. 2017)
-	 * To be phased out
+	 * Phased out
 	 */
 	public void discMove(familiarModel model) {
 		// cast the space as a grid
@@ -299,8 +310,11 @@ public class SpatialAgent extends Agent {
 			// increment the number of times they've interacted
 			this.interact++;
 			partner.interact++;
+		} else {
+			// if the agent doesn't actually interact, set its previous interaction to null and the counter to zero
+			this.previnteract = null;
+			this.interactrun = 0;
 		}
-		
 		// now for actually moving
 		// get the desired angle of movement
 		double newangle = Math.atan2(dir[1], dir[0]);
@@ -320,11 +334,6 @@ public class SpatialAgent extends Agent {
 		this.movedir[1] = Math.sin(newangle);
 		this.movedir[0] = Math.cos(newangle);
 		
-		// since I don't do anything with the angle of movement, I'm just going to normalize to get movement on a unit circle
-//		double magnitude = Math.sqrt(dir[0]*dir[0] + dir[1]*dir[1]);
-//		this.movedir[0] = model.stepsize*dir[0]/magnitude;
-//		this.movedir[1] = model.stepsize*dir[1]/magnitude;
-		
 		// then add it to the agent's current location (adjusted for toroidal movement)
 		this.netx = space.stx(this.netx+model.stepsize*this.movedir[0]);
 		this.nety = space.sty(this.nety+model.stepsize*this.movedir[1]);
@@ -332,7 +341,7 @@ public class SpatialAgent extends Agent {
 	}
 	
 	/*
-	 * Helper function to normalize distances, mostly to test something out
+	 * Helper function to normalize distances
 	 */
 	public static double normDist(double dist) {
 		if(dist == 0) {
@@ -355,11 +364,11 @@ public class SpatialAgent extends Agent {
 			array[1] /= mag;
 			return array;
 		}
-	}
+	}		
 
 	/*
 	 * Adjusts location for toroidal movement
-	 * TODO - phase this out in favor of stx and sty
+	 * Only used in discrete movement
 	 */
 	public static double[] adjustLoc(double[] loc, double[] range) {
 		if(loc[0] > range[0]) {
@@ -373,6 +382,40 @@ public class SpatialAgent extends Agent {
 			loc[1] += 100;
 		}
 		return(loc);
+	}
+	
+	
+	/*
+	 * Gets all of this agents neighbors, counts them, and possibly adds them to the adjacency network
+	 */
+	public int getAdjacency(familiarModel model, boolean net) {
+		// if the network is null, create a new one
+		if(net && model.adjNet == null) {
+			model.adjNet = new Network();
+		}
+		// initialize count of number of neighbors
+		int n = 0;
+		// now I need to cast the space as a continuous space
+		Continuous2D space = (Continuous2D) model.agentNet;
+		// then I can grab all of this agent's neighbors
+		Bag neighbors = space.getNeighborsExactlyWithinDistance(new Double2D(this.netx, this.nety), model.adjacency);
+		// and loop through them
+		for(Object o : neighbors) {
+			// cast it as an agent
+			Agent a = (Agent) o;
+			// it only counts if it isn't this agent
+			if(a != this) {
+				// increment number of neighbors
+				n++;
+				// if creating a network, add to that too
+				if(net) {
+					// add the edge with the actual distance between them as the weight ("info")
+					model.adjNet.addEdge(this, a, Math.sqrt(Math.pow(this.netx-a.netx, 2) + Math.pow(this.nety-a.nety, 2)));
+				}
+			}
+		}
+		// return the total number of neighbors at the end
+		return(n);
 	}
 
 }

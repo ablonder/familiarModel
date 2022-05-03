@@ -41,10 +41,9 @@ public abstract class Agent implements Steppable{
 	public double famCount;
 	// clustering coefficient around this agent
 	public double localcluster;
-	// TODO - figure out what these are actually storing (and make it x and y from Spatial Agent)
-	// x coordinate on the social network
+	// x coordinate in the space
 	public double netx;
-	// y coordinate on the social network
+	// y coordinate in the space
 	public double nety;
 	// color for visualization
 	public Color color;
@@ -54,6 +53,8 @@ public abstract class Agent implements Steppable{
 	public Agent previnteract;
 	// the number of steps this agent has interacted on
 	public int interact;
+	// how many times in a row this agent has interacted with the same partner
+	public int interactrun;
 	// the total number of offspring this agent has had
 	public int offspring;
 	
@@ -160,6 +161,17 @@ public abstract class Agent implements Steppable{
 			if(model.net) {
 				updateFamiliar(model, a);
 				a.updateFamiliar(model, this);
+			}
+			// check if this is a repeated interaction for either agent, and if so add to the counter, otherwise reset
+			if(a == this.previnteract) {
+				this.interactrun += 1;
+			} else {
+				this.interactrun = 0;
+			}
+			if(this == a.previnteract) {
+				a.interactrun += 1;
+			} else {
+				a.interactrun = 0;
 			}
 			// store both agents' latest interaction
 			this.previnteract = a;

@@ -15,9 +15,11 @@ import sim.field.network.Edge;
 import sim.field.network.Network;
 import sim.util.Bag;
 
+/*
+ * Requires the MASON Multiagent simulation toolkit (Luke et al. 2005) to run.
+ */
 public class familiarModel extends Model {
 	
-	// TODO - it may be time to get some netbeans...
 	// number of agents in the population
 	public double popsize;
 	// maximum number of agents in the population
@@ -40,19 +42,19 @@ public class familiarModel extends Model {
 	public boolean randinteract;
 	// maximum angle of rotation
 	public double maxrotate;
-	// step size
+	// step size (or velocity)
 	public double stepsize;
 	// error rate in movement
 	public double error;
 	// weight of flocking (flocking, aggregating, and continuing all add to 1)
 	public double flockstr;
-	// weight of continuing in the same direction
+	// weight of continuing (persisting) in the same direction
 	public double contstr;
-	// whether the agents try to move randomly or just stay still if they try to move into an occupied spot
+	// whether the agents try to move randomly or just stay still if they try to move into an occupied spot (on a grid)
 	public boolean randbounce;
-	// whether the agents should always be moving
+	// whether the agents should always be moving (on a grid)
 	public boolean alwaysmove;
-	// maximum distance of offspring from their parents (should actually be a proportion of the total dimenson)
+	// maximum distance of offspring from their parents (actually a proportion of the total space dimensions)
 	public double reprodist;
 	// whether any evolution happens at all
 	public boolean evol;
@@ -150,6 +152,10 @@ public class familiarModel extends Model {
 	public Network interactNet;
 	// social network of agents
 	public Network famNet;
+	// distance to use for the adjacency network (only keeps track of a network if it's greater than 0)
+	public int adjacency;
+	// spatial network of adjacent agents (just for data collection purposes)
+	public Network adjNet;
 	// clustering coefficient
 	public double clustering;
 	// average familiarity
@@ -158,10 +164,6 @@ public class familiarModel extends Model {
 	public double edgecount;
 	// whether to display the network on GUI runs
 	public boolean displayNet;
-	// whether to return a file containing the edge list as well
-	public boolean edgeList;
-	// the actual file containing the edgelist (is created in write results)
-	public BufferedWriter edgewriter;
 	
 	public familiarModel() {
 		super();
@@ -382,59 +384,15 @@ public class familiarModel extends Model {
 				// return the x and y orientation respecitvely
 				if(r.equals("xdir")) return("" + s.movedir[0]);
 				else return("" + s.movedir[1]);
+			// this gives it the option to return the number of individuals within the provided adjacency range
+			case "neighbors":
+				// again it needs to be a spatial agent for this to work
+				s = (SpatialAgent) o;
+				// each agent will calculate how many neighbors it has
+				return("" + s.getAdjacency(this, false));
 			}
 		}
 		return(super.getResult(r, o, c));
-	}
-	
-	/*
-	 * Closes the edge list writer at the end of a run if one has been created
-	 */
-	public void run(String[] args) {
-		super.run(args);
-		// try to close the edge list writer
-		if(this.edgewriter != null) {
-			try {
-				this.edgewriter.close();
-			} catch(IOException e) {
-				System.out.println("Edge list file failed to close.");
-			}
-		}
-	}
-	
-	/*
-	 * Add the option to create/add to an edge list file in write results
-	 */
-	public void writeResults(int s, String params, boolean end) {
-		super.writeResults(s, params, end);
-		// check to see if an edge list is being collected for this simulation
-		if(this.edgeList) {
-			// this all needs to be under a try catch
-			try {
-				// if the file hasn't been created yet, do that
-				if(this.edgewriter == null) {
-					this.edgewriter = new BufferedWriter(new FileWriter(this.fname+"edgelist.txt"));
-					// create the header
-					makeHeader(this.edgewriter, true, false, new String[] {"from", "to", "info"});
-				}
-				// loop through the familiarity network and add each edge to the file
-				for(Edge[] edges : this.interactNet.getAdjacencyList(true)) {
-					for(Edge e : edges) {
-						// make sure it's not trying to access a null edge, just in case
-						if(e != null) {
-							// I think I have to grab the agents separately to get their ID's
-							Agent from = (Agent) e.getFrom();
-							Agent to = (Agent) e.getTo();
-							// add that edge to the file (along with all the other info about the run that it's part of)
-							this.edgewriter.write("" + s + this.sep + schedule.getSteps() + this.sep + params + from.id + this.sep + 
-									to.id + this.sep + e.getInfo() + this.sep + "\n");
-						}
-					}
-				}
-			} catch(IOException e) {
-				System.out.println("Failed to write to edge list.");
-			}
-		}
 	}
 	
 	/*
@@ -488,6 +446,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel(args[0]);
+		familiarModel model = new familiarModel("neighbortest.txt");
 	}
 }
