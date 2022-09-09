@@ -76,7 +76,7 @@ public abstract class Agent implements Steppable{
 		// and to the familiarity network
 		model.famNet.addNode(this);
 		// draw its lifespan from a normal distribution (making sure it's at least 1)
-		this.lifespan = (int) (model.drawGamma(model.minlifespan, model.varlifespan, 1));
+		this.lifespan = (int) (distSampler.drawGamma(model.random, model.minlifespan, model.varlifespan, 1));
 		// initialize number of familiar individuals to zero
 		this.famCount = 0;
 		// initialize interactions to 0
@@ -436,7 +436,7 @@ public abstract class Agent implements Steppable{
 		// give it its parent's aggregation tendency (with some mutation if it's evolving)
 		a.viewrange = this.viewrange;
 		if(model.evolagg) {
-			a.viewrange = model.drawRange(this.viewrange, model.aggnoise, 1, Double.MAX_VALUE);
+			a.viewrange = distSampler.drawRange(model.random, this.viewrange, model.aggnoise, 1, Double.MAX_VALUE);
 			model.agg[(a.coop) ? 1:0] += a.viewrange;
 		}
 		return a;

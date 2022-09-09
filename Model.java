@@ -358,8 +358,8 @@ public abstract class Model extends SimState  {
 				return rand.nextInt(Integer.parseInt(distparams[0]));
 			case 'G':
 				// Gamma distribution, for things that are generally small (but above 0), with some larger values - with optional min
-				if(distparams.length < 3) return(drawGamma(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), 0, rand));
-				return drawGamma(Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), Double.parseDouble(distparams[2]), rand);
+				if(distparams.length < 3) return(distSampler.drawGamma(rand, Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), 0));
+				return distSampler.drawGamma(rand, Double.parseDouble(distparams[0]), Double.parseDouble(distparams[1]), Double.parseDouble(distparams[2]));
 			}
 		}catch(NumberFormatException e) {
 			// this and a few other things will result in returning NaN
@@ -629,7 +629,7 @@ public abstract class Model extends SimState  {
 							res += getResult(r, this.agents[o], this.agentclass) + this.sep;
 						}
 						// write params, the agent's number, and the results to the agent results
-						this.agentwriter.write("" + s + this.sep + schedule.getSteps() + this.sep + params + o + this.sep + res + "\n");
+						this.agentwriter.write("" + s + this.sep + schedule.getSteps() + this.sep + params + o + this.sep + this.agents[o] + this.sep + res + "\n");
 					}
 				}
 			}
@@ -650,12 +650,9 @@ public abstract class Model extends SimState  {
 								for(Edge e : edges) {
 									// make sure it's not trying to access a null edge, just in case
 									if(e != null) {
-										// I think I have to grab the agents separately to get their ID's
-										Agent from = (Agent) e.getFrom();
-										Agent to = (Agent) e.getTo();
 										// add that edge to the file (along with all the other info about the run that it's part of)
-										this.netwriters[i].write("" + s + this.sep + schedule.getSteps() + this.sep + params + from.id + this.sep + 
-												to.id + this.sep + e.getInfo() + this.sep + "\n");
+										this.netwriters[i].write("" + s + this.sep + schedule.getSteps() + this.sep + params + e.getFrom() + this.sep + 
+												e.getTo() + this.sep + e.getInfo() + this.sep + "\n");
 									}
 								}
 							}
@@ -815,90 +812,4 @@ public abstract class Model extends SimState  {
 			}
 		}
 	}
-	
-	/*
-	 * helper utility to  draw a random value from a normal distribution within a certain range using a while-loop
-	 * TODO - phase out
-	 */
-	public double drawRange(double val, double var, double min, double max) {
-		boolean within = false;
-		double draw = 0;
-		while(!within) {
-			// draw variance from a normal distribution
-			draw = this.random.nextGaussian()*var;
-			// check to see if its in the right range;
-			if(val+draw >= min && val+draw <= max) {
-				within = true;
-			}
-		}
-		// once a reasonable value has been found, return it
-		return draw+val;
-	}
-	
-	/*
-	 * helper utility to draw a random value from a nicely shaped Erlang distribution (based around mode and standard deviation)
-	 * 	(note: struggles with large values - algorithm runs mean^2/var iterations
-	 *   scale by dividing mean and sd by a constant, convert sd to variance by squaring, and then scale back up the result)
-	 *   TODO - phase out for GammaNormalized
-	 */
-	public double drawErlang(double mode, double sd) {
-		// if the standard deviation is too low, just use a normal, that should be fine (otherwise it'll take a while and return infs)
-		if(sd < .02) return drawRange(mode, sd, 0, Double.MAX_VALUE);
-		double v = Math.pow(2*sd, 2);
-		double m = (1+Math.sqrt(1 + 4*v))/2;
-		// switch to draw from Gamma
-		double draw = Distributions.nextErlang(v, m, this.random);
-		if(draw == Double.POSITIVE_INFINITY) return mode;
-		return draw*mode;
-	}
-	
-	/*
-	 * calls drawErlang with a min other than 0 by subtracting and then adding back
-	 */
-	public double drawErlang(double mode, double sd, double min) {
-		return drawErlang(mode-min, sd) + min;
-	}
-	
-	/*
-	 * Wrapper for GammaNormalized that adjusts the mean and min
-	 */
-	public double drawGamma(double mean, double sd, double min, MersenneTwisterFast random) {
-		GammaNormalized gamma = GammaNormalized.initialize(sd, random);
-		return gamma.nextDouble()*(mean-min) + min;
-	}
-	
-	/*
-	 * option to run Gamma with the default random generator
-	 */
-	public double drawGamma(double mean, double sd, double min) {
-		return drawGamma(mean, sd, min, this.random);
-	}
-	
-	/*
-	 * helper utility to draw a random value from a nicely shaped Beta distribution between 0 and 1 (based around mode and "concentration")
-	 * TODO - phase out
-	 */
-	public double drawBetaMode(double mode, double var) {
-		double a = mode*(500*var)+1;
-		double b = (1-mode)*(500*var)+1;
-		Beta beta = new Beta(a, b, this.random);
-		double draw = beta.nextDouble();
-		return draw;
-	}
-	
-	/*
-	 * Draws from a beta distribution based on mean and inverse square root sample size (to allow for a parameter between 0 and 1)
-	 */
-	public double drawBeta(double mean, double var) {
-		// since this involves dividing by variation, make sure it's greater than 0
-		if(var < .0001) return mean;
-		// also make sure the mean is between .0001 and .9999 just to be safe
-		mean = Math.min(Math.max(mean, .0001), .9999);
-		double a = mean/Math.pow(var, 2);
-		double b = (1-mean)/Math.pow(var, 2);
-		Beta beta = new Beta(a, b, this.random);
-		return beta.nextDouble();
-	}
-	
-
 }

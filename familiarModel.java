@@ -173,6 +173,10 @@ public class familiarModel extends Model {
 		super(fname);
 	}
 	
+	public familiarModel(String fname, String[] params, String[] paramkeys) {
+		super(fname, params, paramkeys);
+	}
+	
 	public void start() {
 		super.start();
 		// there are some parameters whose values may need to be recalculated based on other parameters
@@ -272,10 +276,10 @@ public class familiarModel extends Model {
 				if(this.random.nextBoolean(rate)) {
 					// for famBias and decay, draw from a Beta distribution (with a maximum of 3/4 variance to keep it a little tighter)
 					if(i == 0 || i == 3) {
-						gene[i] = drawBeta(gene[i], var*3/4);
+						gene[i] = distSampler.drawBeta(this.random, gene[i], var*3/4);
 					} else {
 						// otherwise, for memory and lrate, draw from a Gamma distribution
-						gene[i] = drawGamma(gene[i], var, 0);
+						gene[i] = distSampler.drawGamma(this.random, gene[i], var, 0);
 					}
 				}
 			}
@@ -446,6 +450,6 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("neighbortest.txt");
+		familiarModel model = new familiarModel("neighbortest.txt", new String[]{"famBias"}, new String[]{"fb"});
 	}
 }
