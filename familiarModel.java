@@ -18,7 +18,7 @@ import sim.util.Bag;
 /*
  * Requires the MASON Multiagent simulation toolkit (Luke et al. 2005) to run.
  */
-public class familiarModel extends Model {
+public class familiarModel extends SimDataCollection {
 	
 	// number of agents in the population
 	public double popsize;
@@ -450,6 +450,7 @@ public class familiarModel extends Model {
 	
 	
 	public static void main(String[] args) {
-		familiarModel model = new familiarModel("neighbortest.txt", new String[]{"famBias"}, new String[]{"fb"});
+		//familiarModel model = new familiarModel("neighbortest.txt", new String[]{"famBias"}, new String[]{"fb"});
+		new familiarModel();
 	}
 }
