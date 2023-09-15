@@ -14,7 +14,7 @@ Here you can see schools of cooperators (those blue circles) swimming around. Oc
 
 I built this simulation in Java using the <a href="https://cs.gmu.edu/~eclab/projects/mason/">MASON</a> Multi-Agent Toolkit and my own <a href="https://github.com/ablonder/SimDataCollection">SimDataCollection</a> infrastructure.
 
-I implemented the fishes' schooling behavior based on the latest research that suggests each individual follows its neighbors according to simple rules. To enable the fish to form friendships, I added a social network that underlies the whole simulation. Connections between fish are strengthened whenever they interact and grow weaker if they drift apart and don't see each other for a while. And then, I implemented an evolutionary algorithm, so that only successful fish survive and reproduce.
+I implemented the fishes' schooling behavior based on the latest research that suggests each individual follows its neighbors according to simple rules. To enable the fish to form friendships, I added a social network that also influences their decisions of who to follow. Connections between fish are strengthened whenever they interact and grow weaker if they drift apart and don't see each other for a while. And then, I implemented an evolutionary algorithm, so that only successful fish survive and reproduce.
 
 Remarkably, cooperation was the winning strategy!
 
