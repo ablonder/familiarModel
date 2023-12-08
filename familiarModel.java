@@ -450,7 +450,10 @@ public class familiarModel extends SimDataCollection {
 	
 	
 	public static void main(String[] args) {
-		//familiarModel model = new familiarModel("neighbortest.txt", new String[]{"famBias"}, new String[]{"fb"});
-		new familiarModel();
+		if(args.length == 0) {
+			new familiarModel();
+		}else {
+			new familiarModel(args[0]);
+		}
 	}
 }
